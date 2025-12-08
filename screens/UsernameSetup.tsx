@@ -21,9 +21,12 @@ export default function UsernameSetup() {
 
   // Using the requested placeholder icon path
   const icons = [
-    require('../assets/icon.png'),
-    require('../assets/icon.png'),
-    require('../assets/icon.png')
+    require('../assets/icon1.png'),
+    require('../assets/icon2.png'),
+    require('../assets/icon3.png'),
+    require('../assets/icon4.png'),
+    require('../assets/icon5.png'),
+    require('../assets/icon6.png')
   ];
 
   const isFormValid = username.length > 0 && selectedIconIndex !== null;
