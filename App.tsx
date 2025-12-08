@@ -7,6 +7,8 @@ import { ActivityIndicator, View } from 'react-native';
 import Index from './screens/Index';
 import UsernameSetup from './screens/UsernameSetup';
 import Home from './screens/Home';
+import Settings from './screens/Settings';
+import Notifications from './screens/Notifications';
 
 
 const Stack = createNativeStackNavigator();
@@ -32,8 +34,8 @@ export default function App() {
         <Stack.Screen name="Index" component={Index} />
         <Stack.Screen name="UsernameSetup" component={UsernameSetup} />
         <Stack.Screen name="Home" component={Home} />
-        {/* <Stack.Screen name="Settings" component={Settings} />
-        <Stack.Screen name="Notifications" component={Notifications} /> */}
+        <Stack.Screen name="Settings" component={Settings} />
+        <Stack.Screen name="Notifications" component={Notifications} />
       </Stack.Navigator>
     </NavigationContainer>
   );

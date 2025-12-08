@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView
 } from "react-native";
+// FIX: Correct import to stop the "Deprecated" warning
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -19,7 +20,6 @@ export default function UsernameSetup() {
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [selectedIconIndex, setSelectedIconIndex] = useState<number | null>(null);
 
-  // Using the requested placeholder icon path
   const icons = [
     require('../assets/icon1.png'),
     require('../assets/icon2.png'),
@@ -35,13 +35,14 @@ export default function UsernameSetup() {
     if (!isFormValid) return;
     
     console.log(`Profile created: ${username} with icon index ${selectedIconIndex}`);
+    
+    // Navigate to Home screen
     // @ts-ignore
-    // navigation.navigate('Home'); 
+    navigation.navigate('Home'); 
   };
 
   return (
-    // Background: Calm Cream (#FDFBF7)
-    <View className="flex-1 bg-ghostWhite">
+    <View className="flex-1 bg-[#FDFBF7]">
       <SafeAreaView className="flex-1">
         <KeyboardAvoidingView 
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -52,7 +53,7 @@ export default function UsernameSetup() {
             showsVerticalScrollIndicator={false}
           >
             
-            {/* --- Header (Revised to match theme) --- */}
+            {/* --- Header --- */}
             <View className="mt-6 mb-10">
               <Text className="text-3xl font-bold text-[#36454F] mb-2 tracking-tight">
                 Who is sending the signal?
@@ -70,22 +71,22 @@ export default function UsernameSetup() {
               <TextInput 
                 className={`w-full bg-white border-2 rounded-2xl p-5 text-xl text-[#36454F] font-medium
                   ${isInputFocused 
-                    ? 'border-primary shadow-sm' // Active: Passion Pink
-                    : 'border-transparent shadow-sm' // Inactive: Clean white look
+                    ? 'border-[#FF5C8D] shadow-sm' 
+                    : 'border-transparent shadow-sm'
                   }
                 `}
-                placeholder="e.g. cutie"
+                placeholder="e.g. IvereneCutie"
                 placeholderTextColor="#A0AEC0"
                 value={username}
                 onChangeText={setUsername}
                 onFocus={() => setIsInputFocused(true)}
                 onBlur={() => setIsInputFocused(false)}
                 maxLength={20}
-                style={{ elevation: 2 }} // Subtle elevation for depth
+                style={{ elevation: 2 }}
               />
             </View>
 
-            {/* --- Avatar Selection (Circular) --- */}
+            {/* --- Avatar Selection --- */}
             <View className="flex-1">
               <Text className="text-sm font-bold text-[#36454F] uppercase tracking-wider mb-5 ml-1 opacity-80">
                 Choose an Avatar
@@ -97,11 +98,10 @@ export default function UsernameSetup() {
                     key={idx} 
                     onPress={() => setSelectedIconIndex(idx)}
                     activeOpacity={0.8}
-                    // Container: Circle shape, white bg, shadow
                     className={`mb-6 items-center justify-center rounded-full w-[30%] aspect-square
                       ${selectedIconIndex === idx 
-                        ? 'border-4 border-primary bg-white' // Selected: Pink Border
-                        : 'border-4 border-white bg-white'      // Unselected: White Border
+                        ? 'border-4 border-[#FF5C8D] bg-white' 
+                        : 'border-4 border-white bg-white'
                       }
                     `}
                     style={{
@@ -112,14 +112,12 @@ export default function UsernameSetup() {
                       elevation: 3
                     }}
                   >
-                    {/* Image: Fully circular and contained */}
                     <Image 
                       source={icon} 
                       className="w-full h-full rounded-full"
                       resizeMode="cover"
                     />
 
-                    {/* Selection Indicator (Checkmark) */}
                     {selectedIconIndex === idx && (
                       <View className="absolute bottom-0 right-0 bg-[#FF5C8D] rounded-full w-7 h-7 items-center justify-center border-2 border-white">
                         <Ionicons name="checkmark" size={16} color="white" />
@@ -136,8 +134,8 @@ export default function UsernameSetup() {
                 onPress={handleContinue}
                 className={`w-full py-5 rounded-full items-center flex-row justify-center
                   ${isFormValid 
-                    ? 'bg-primary shadow-lg shadow-[#FF5C8D]/30' // Passion Pink
-                    : 'bg-[#E2E8F0]' // Disabled Gray
+                    ? 'bg-[#FF5C8D] shadow-lg shadow-[#FF5C8D]/30' 
+                    : 'bg-[#E2E8F0]'
                   }
                 `}
                 disabled={!isFormValid}
