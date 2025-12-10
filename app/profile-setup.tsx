@@ -137,7 +137,7 @@ export default function UsernameSetup() {
               <TouchableOpacity 
                 onPress={handleContinue}
                 className={`w-full py-5 rounded-full items-center flex-row justify-center
-                  ${isFormValid ? 'bg-[#FF5C8D]' : 'bg-[#E2E8F0]'}
+                  ${isFormValid ? 'bg-primary' : 'bg-[#E2E8F0]'}
                 `}
                 disabled={!isFormValid}
                 style={isFormValid ? {

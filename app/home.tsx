@@ -32,7 +32,7 @@ const NEARBY_USERS = [
   { id: 3, x: -50, y: 110 }, { id: 4, x: 80, y: 80 }, { id: 5, x: 120, y: -120 },
 ];
 
-// --- Radar Component (FIXED) ---
+// --- Radar Component ---
 const RadarRing = ({ delay }: { delay: number }) => {
   const ringProgress = useSharedValue(0);
   
@@ -52,7 +52,6 @@ const RadarRing = ({ delay }: { delay: number }) => {
     transform: [{ scale: interpolate(ringProgress.value, [0, 1], [1, 3.5]) }],
   }));
 
-  // CHANGED: Use 'style' prop for critical layout/border styles to ensure visibility
   return (
     <Animated.View 
       style={[
@@ -96,9 +95,9 @@ const SendSignalModal = ({ visible, onClose, onSend, targetUser }: any) => (
       <View className="flex-1 justify-center items-center px-6" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
         <TouchableWithoutFeedback>
           <View className="bg-[#FDFBF7] w-full max-w-sm rounded-3xl p-6 items-center" style={{ shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, elevation: 5 }}>
-            <View className="bg-[#FFECEF] p-4 rounded-full mb-4"><Ionicons name="heart" size={32} color="#ed5d55" /></View>
+            <View className="bg-[#FFECEF] p-4 rounded-full mb-4"><Ionicons name="heart" size={32} color="#ED5D55" /></View>
             <Text className="text-xl font-bold text-[#36454F] mb-2 text-center">Send a Signal?</Text>
-            <Text className="text-gray-500 text-center mb-8 px-2 leading-6">You are about to send a heart signal.</Text>
+            <Text className="text-gray-500 text-center mb-8 px-2 leading-6">You are about to send a quiet heart signal.</Text>
             <View className="flex-row gap-3 w-full">
               <TouchableOpacity onPress={onClose} className="flex-1 bg-gray-200 py-4 rounded-xl items-center"><Text className="text-gray-600 font-bold text-base">Cancel</Text></TouchableOpacity>
               <TouchableOpacity onPress={onSend} className="flex-1 bg-[#ED5D55] py-4 rounded-xl items-center" style={{ shadowColor: '#FF5C8D', shadowOpacity: 0.3, shadowRadius: 5, elevation: 3 }}><Text className="text-white font-bold text-base">Send Signal</Text></TouchableOpacity>
@@ -115,15 +114,17 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'signals' | 'nearby'>('signals');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isVisible, setIsVisible] = useState(true);
+  const [signalCount, setSignalCount] = useState(0);
 
-  // --- 2. INITIALIZATION LOGIC ---
+  // Define vertical shift amount (in pixels) to move the center UP
+  const CENTER_OFFSET_Y = -60;
+
   useFocusEffect(
     useCallback(() => {
       const initializeHome = async () => {
         try {
           const storedVisibility = await AsyncStorage.getItem('userVisibility');
           let shouldBeVisible = true; 
-          
           if (storedVisibility !== null) {
             shouldBeVisible = JSON.parse(storedVisibility);
           }
@@ -131,22 +132,16 @@ export default function Home() {
           if (shouldBeVisible) {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-              Alert.alert(
-                'Permission Required',
-                'Location access is needed to show you on the radar. Visibility has been turned off.',
-                [{ text: 'OK' }]
-              );
+              Alert.alert('Permission Required', 'Location access is needed to show you on the radar. Visibility has been turned off.', [{ text: 'OK' }]);
               shouldBeVisible = false;
               await AsyncStorage.setItem('userVisibility', JSON.stringify(false));
             }
           }
-
           setIsVisible(shouldBeVisible);
         } catch (e) {
           console.error("Failed to initialize home", e);
         }
       };
-      
       initializeHome();
     }, [])
   );
@@ -183,23 +178,20 @@ export default function Home() {
           </TouchableOpacity>
         </View>
 
-        {/* Main Content */}
+        {/* Main Content Area */}
         <View className="flex-1 justify-center items-center relative">
           
           {isVisible ? (
             <>
-              {/* Radar Layer */}
-              <View className="absolute items-center justify-center w-full h-full pointer-events-none">
-                
-                {/* CHANGED: Container for Radar & Icon is now ONE centered block */}
+              {/* Radar Layer - Shifted Up */}
+              <View 
+                className="absolute items-center justify-center w-full h-full pointer-events-none"
+                style={{ marginTop: CENTER_OFFSET_Y }}
+              >
                 <View className="items-center justify-center w-[300px] h-[300px]">
-                  
-                  {/* Rings (Absolute to this container) */}
                   <RadarRing delay={0} />
                   <RadarRing delay={1000} />
                   <RadarRing delay={2000} />
-                  
-                  {/* Icon (Centered by flex) */}
                   <Animated.View style={[pulseAnimatedStyle, { zIndex: 10 }]}>
                     <Image 
                       source={require('../assets/icon.png')} 
@@ -208,20 +200,44 @@ export default function Home() {
                       style={{ tintColor: 'white', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10 }} 
                     />
                   </Animated.View>
-
                 </View>
               </View>
               
-              {/* Nearby Users Layer */}
-              {viewMode === 'nearby' && (
-                <View className="absolute w-full h-full">
-                  {NEARBY_USERS.map((user) => <UserDot key={user.id} user={user} onPress={setSelectedUser} isSignalsMode={false} />)}
+              {/* Signal Count (Bottom) - Kept at absolute bottom, NOT shifted, to balance layout */}
+              {viewMode === 'signals' && (
+                <View className="absolute bottom-[15%] items-center">
+                  <Text className="text-white text-6xl font-bold shadow-sm">
+                    {signalCount}
+                  </Text>
                 </View>
+              )}
+
+              {/* Nearby Users Layer - Shifted Up to Match Radar */}
+              {viewMode === 'nearby' && (
+                <View 
+                  className="absolute w-full h-full"
+                  style={{ marginTop: CENTER_OFFSET_Y }}
+                >
+                  {NEARBY_USERS.map((user) => <UserDot key={user.id} user={user} onPress={setSelectedUser} isSignalsMode={false} />)}
+                  
+                </View>
+              )}
+              
+              {/* Counter Pill (Fixed at bottom independently of Radar shift) */}
+              {viewMode === 'nearby' && (
+                 <View className="absolute bottom-[10%] w-full items-center pointer-events-none">
+                    <Text className="text-white/80 text-sm bg-black/10 px-4 py-2 rounded-full overflow-hidden">
+                       {NEARBY_USERS.length} active hearts nearby
+                    </Text>
+                 </View>
               )}
             </>
           ) : (
-            // Hidden State
-            <View className="items-center justify-center opacity-80">
+            // Hidden State - Shifted Up
+            <View 
+              className="items-center justify-center opacity-80"
+              style={{ marginTop: CENTER_OFFSET_Y }}
+            >
                <View className="w-[120px] h-[120px] rounded-full border-4 border-white/30 items-center justify-center mb-6 bg-white/10">
                   <Ionicons name="eye-off-outline" size={50} color="white" />
                </View>
@@ -245,12 +261,12 @@ export default function Home() {
         <SendSignalModal 
           visible={!!selectedUser} 
           onClose={() => setSelectedUser(null)} 
-          onSend={() => { setSelectedUser(null); 
-            
-          Alert.alert("Signal Sent!", "Your heart signal has been sent. Wait to see if someone responds.");
+          onSend={() => { 
+            setSelectedUser(null); 
+            Alert.alert("Signal Sent!", "Your heart signal has been sent.");
           }} 
-          
-          targetUser={selectedUser} />
+          targetUser={selectedUser} 
+        />
       )}
     </View>
   );
