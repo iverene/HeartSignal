@@ -1,18 +1,7 @@
 import './global.css';
-import * as React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Slot } from 'expo-router';
 import { useFonts, Inter_400Regular, Inter_700Bold } from '@expo-google-fonts/inter';
-
-// Screens
-import Index from './screens/Index';
-import UsernameSetup from './screens/UsernameSetup';
-import Home from './screens/Home';
-import Settings from './screens/Settings';
-import Notifications from './screens/Notifications';
-
-const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -28,15 +17,6 @@ export default function App() {
     );
   }
 
-  return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Index" screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Index" component={Index} />
-        <Stack.Screen name="UsernameSetup" component={UsernameSetup} />
-        <Stack.Screen name="Home" component={Home} />
-        <Stack.Screen name="Settings" component={Settings} />
-        <Stack.Screen name="Notifications" component={Notifications} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
+  // Slot renders the current route (screen)
+  return <Slot />;
 }

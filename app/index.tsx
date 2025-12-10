@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, Dimensions } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -11,8 +11,7 @@ import Animated, {
   interpolate
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-// FIX 1: Correct import for SafeAreaView
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router'; // Expo Router navigation
 
 // --- Radar Ring Component ---
 const RadarRing = ({ delay }: { delay: number }) => {
@@ -29,14 +28,12 @@ const RadarRing = ({ delay }: { delay: number }) => {
     );
   }, []);
 
-  const ringStyle = useAnimatedStyle(() => {
-    return {
-      opacity: interpolate(ringProgress.value, [0, 0.7, 1], [0.5, 0.2, 0]),
-      transform: [
-        { scale: interpolate(ringProgress.value, [0, 1], [1, 3]) },
-      ],
-    };
-  });
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(ringProgress.value, [0, 0.7, 1], [0.5, 0.2, 0]),
+    transform: [
+      { scale: interpolate(ringProgress.value, [0, 1], [1, 3]) },
+    ],
+  }));
 
   return (
     <Animated.View 
@@ -47,20 +44,17 @@ const RadarRing = ({ delay }: { delay: number }) => {
 };
 
 export default function Index() {
-  const navigation = useNavigation();
-
   const handleGoogleSignIn = async () => {
-    // @ts-ignore
-    navigation.navigate('UsernameSetup');
+    // Navigate to UsernameSetup page
+    router.push('/profile-setup'); // <- this replaces navigation.navigate
   };
 
   return (
     <View className="flex-1 bg-ghostWhite relative overflow-hidden">
-      
       <SafeAreaView className="flex-1">
         <View className="flex-1 px-8 justify-between py-16">
-          
-          {/* --- Top: Word Logo --- */}
+
+          {/* Top: Word Logo */}
           <View className="items-center mt-10">
             <Image 
               source={require('../assets/word-logo.png')}
@@ -69,17 +63,13 @@ export default function Index() {
             />
           </View>
 
-          {/* --- Center: Radar Animation & Icon --- */}
+          {/* Center: Radar Animation & Icon */}
           <View className="items-center justify-center">
-            
-            {/* Radar Container */}
             <View className="items-center justify-center w-[300px] h-[300px] relative mb-8">
-              
               <RadarRing delay={0} />
               <RadarRing delay={1000} />
               <RadarRing delay={2000} />
 
-              {/* The Main Icon */}
               <Image 
                 source={require('../assets/icon.png')}
                 className="w-[100px] h-[100px]"
@@ -92,7 +82,7 @@ export default function Index() {
             </Text>
           </View>
 
-          {/* --- Bottom: Google Button --- */}
+          {/* Bottom: Google Button */}
           <View className="w-full mb-5">
             <TouchableOpacity 
               onPress={handleGoogleSignIn}

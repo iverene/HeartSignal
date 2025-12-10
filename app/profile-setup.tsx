@@ -1,4 +1,3 @@
-import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
 import { 
   Image, 
@@ -10,12 +9,11 @@ import {
   Platform,
   ScrollView
 } from "react-native";
-// FIX: Correct import to stop the "Deprecated" warning
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 export default function UsernameSetup() {
-  const navigation = useNavigation();
   const [username, setUsername] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [selectedIconIndex, setSelectedIconIndex] = useState<number | null>(null);
@@ -33,12 +31,9 @@ export default function UsernameSetup() {
 
   const handleContinue = () => {
     if (!isFormValid) return;
-    
+
     console.log(`Profile created: ${username} with icon index ${selectedIconIndex}`);
-    
-    // Navigate to Home screen
-    // @ts-ignore
-    navigation.navigate('Home'); 
+    router.push('/home'); // Navigate to Home screen using Expo Router
   };
 
   return (
@@ -52,7 +47,6 @@ export default function UsernameSetup() {
             contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingVertical: 16 }}
             showsVerticalScrollIndicator={false}
           >
-            
             {/* --- Header --- */}
             <View className="mt-6 mb-10">
               <Text className="text-3xl font-bold text-[#36454F] mb-2 tracking-tight">
@@ -70,10 +64,7 @@ export default function UsernameSetup() {
               </Text>
               <TextInput 
                 className={`w-full bg-white border-2 rounded-2xl p-5 text-xl text-[#36454F] font-medium
-                  ${isInputFocused 
-                    ? 'border-[#FF5C8D] shadow-sm' 
-                    : 'border-transparent shadow-sm'
-                  }
+                  ${isInputFocused ? 'border-[#FF5C8D] shadow-sm' : 'border-transparent shadow-sm'}
                 `}
                 placeholder="e.g. IvereneCutie"
                 placeholderTextColor="#A0AEC0"
@@ -91,7 +82,6 @@ export default function UsernameSetup() {
               <Text className="text-sm font-bold text-[#36454F] uppercase tracking-wider mb-5 ml-1 opacity-80">
                 Choose an Avatar
               </Text>
-              
               <View className="flex-row flex-wrap justify-between">
                 {icons.map((icon, idx) => (
                   <TouchableOpacity 
@@ -99,10 +89,7 @@ export default function UsernameSetup() {
                     onPress={() => setSelectedIconIndex(idx)}
                     activeOpacity={0.8}
                     className={`mb-6 items-center justify-center rounded-full w-[30%] aspect-square
-                      ${selectedIconIndex === idx 
-                        ? 'border-4 border-[#FF5C8D] bg-white' 
-                        : 'border-4 border-white bg-white'
-                      }
+                      ${selectedIconIndex === idx ? 'border-4 border-[#FF5C8D] bg-white' : 'border-4 border-white bg-white'}
                     `}
                     style={{
                       shadowColor: "#36454F",
@@ -117,7 +104,6 @@ export default function UsernameSetup() {
                       className="w-full h-full rounded-full"
                       resizeMode="cover"
                     />
-
                     {selectedIconIndex === idx && (
                       <View className="absolute bottom-0 right-0 bg-[#FF5C8D] rounded-full w-7 h-7 items-center justify-center border-2 border-white">
                         <Ionicons name="checkmark" size={16} color="white" />
@@ -133,10 +119,7 @@ export default function UsernameSetup() {
               <TouchableOpacity 
                 onPress={handleContinue}
                 className={`w-full py-5 rounded-full items-center flex-row justify-center
-                  ${isFormValid 
-                    ? 'bg-[#FF5C8D] shadow-lg shadow-[#FF5C8D]/30' 
-                    : 'bg-[#E2E8F0]'
-                  }
+                  ${isFormValid ? 'bg-[#FF5C8D] shadow-lg shadow-[#FF5C8D]/30' : 'bg-[#E2E8F0]'}
                 `}
                 disabled={!isFormValid}
               >
