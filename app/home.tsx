@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Device from 'expo-device'; // Ensure you have installed: npx expo install expo-device
+import * as Device from 'expo-device'; 
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Alert,
   Image,
@@ -21,15 +21,16 @@ import Animated, {
   useSharedValue,
   withDelay,
   withRepeat, withTiming,
+  withSequence
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
 
-// Import API services
+// Import API services (Ensure these exist in your project)
 import { getNearbyUsers, sendSignal, updateLocation } from '../services/api';
 
 // --- ANIMATION COMPONENTS ---
 
-// --- Radar Component ---
 const RadarRing = ({ delay }: { delay: number }) => {
   const ringProgress = useSharedValue(0);
   
@@ -67,14 +68,12 @@ const RadarRing = ({ delay }: { delay: number }) => {
   );
 };
 
-// --- User Dot Component ---
 const UserDot = ({ user, onPress, isSignalsMode }: { user: any, onPress: (u: any) => void, isSignalsMode: boolean }) => {
   const translateY = useSharedValue(0);
   const opacity = useSharedValue(isSignalsMode ? 0 : 1);
   
   useEffect(() => { opacity.value = withTiming(isSignalsMode ? 0 : 1, { duration: 500 }); }, [isSignalsMode]);
   
-  // Simple "floating" animation to make dots look alive
   useEffect(() => { 
     const duration = 2000 + (Math.random() * 1000);
     translateY.value = withRepeat(withTiming(5, { duration, easing: Easing.inOut(Easing.ease) }), -1, true); 
@@ -88,7 +87,6 @@ const UserDot = ({ user, onPress, isSignalsMode }: { user: any, onPress: (u: any
       pointerEvents={isSignalsMode ? 'none' : 'auto'}
     >
       <TouchableOpacity onPress={() => onPress(user)} activeOpacity={0.7} hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }} className="items-center justify-center">
-        {/* User Dot Visual */}
         <View className="w-5 h-5 rounded-full bg-white border-2 border-[#ED5D55]" style={{ shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, elevation: 5 }} />
       </TouchableOpacity>
     </Animated.View>
@@ -110,12 +108,12 @@ const SendSignalModal = ({ visible, onClose, onSend }: any) => {
                 <TouchableOpacity onPress={onSend} className="flex-1 bg-[#FF5C8D] py-4 rounded-xl items-center" style={{ shadowColor: '#FF5C8D', shadowOpacity: 0.3, shadowRadius: 5, elevation: 3 }}><Text className="text-white font-bold text-base">Send Signal</Text></TouchableOpacity>
               </View>
             </View>
-          </View>
-        </TouchableWithoutFeedback>
-      </View>
-    </TouchableWithoutFeedback>
-  </Modal>
-);
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+};
 
 export default function Home() {
   const router = useRouter();
@@ -123,24 +121,46 @@ export default function Home() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isVisible, setIsVisible] = useState(true);
   const [signalCount, setSignalCount] = useState(0);
+  const [nearbyUsers, setNearbyUsers] = useState<any[]>([]);
 
-  // Define vertical shift amount (in pixels) to move the center UP
+  // Shift content up to center it better visually
   const CENTER_OFFSET_Y = -60;
 
+  // Mock ID generation
+  let currentUserId = "emulator_user";
+  if (Platform.OS === 'web') currentUserId = "web_user";
+  else if (Device.isDevice) currentUserId = "real_phone_user";
+
+  const scale = useSharedValue(1);
+  React.useEffect(() => {
+    scale.value = withRepeat(withSequence(withTiming(1.05, { duration: 400 }), withTiming(1, { duration: 400 }), withDelay(1000, withTiming(1, { duration: 0 }))), -1, false);
+  }, []);
+  
+  const pulseAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  // --- INITIALIZATION ON FOCUS ---
   useFocusEffect(
     useCallback(() => {
       const initializeHome = async () => {
         try {
           const storedVisibility = await AsyncStorage.getItem('userVisibility');
           let shouldBeVisible = true; 
+          
+          // If first time (null), default to true. Otherwise load preference.
           if (storedVisibility !== null) {
             shouldBeVisible = JSON.parse(storedVisibility);
           }
 
           if (shouldBeVisible) {
+            // This is the critical line that asks for permission
             const { status } = await Location.requestForegroundPermissionsAsync();
+            
             if (status !== 'granted') {
-              Alert.alert('Permission Required', 'Location access is needed to show you on the radar. Visibility has been turned off.', [{ text: 'OK' }]);
+              Alert.alert(
+                'Permission Required',
+                'Location access is needed to show you on the radar. Visibility has been turned off.',
+                [{ text: 'OK' }]
+              );
               shouldBeVisible = false;
               await AsyncStorage.setItem('userVisibility', JSON.stringify(false));
             }
@@ -154,73 +174,44 @@ export default function Home() {
     }, [])
   );
 
-  const scale = useSharedValue(1);
-  React.useEffect(() => {
-    scale.value = withRepeat(withSequence(withTiming(1.05, { duration: 400 }), withTiming(1, { duration: 400 }), withDelay(1000, withTiming(1, { duration: 0 }))), -1, false);
-  }, []);
-  
-  // Real data state
-  const [nearbyUsers, setNearbyUsers] = useState<any[]>([]);
-  
-  // --- AUTOMATIC ID ASSIGNMENT FOR TESTING ---
-  let currentUserId = "emulator_user"; // Default fallback
-  
-  if (Platform.OS === 'web') {
-    currentUserId = "web_user"; // Laptop Browser will be this user
-  } else if (Device.isDevice) {
-    currentUserId = "real_phone_user"; // Physical Phone will be this user
-  }
-
-  const handleSettings = () => router.push('/settings');
-
-  // --- LOCATION & DATA SYNC LOOP ---
+  // --- DATA SYNC LOOP (Running only when visible) ---
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
 
     const startLocationTracking = async () => {
-      // 1. Request Permission
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission denied', 'Permission to access location was denied. The radar will not work.');
-        return;
-      }
-
-      // 2. Initial Fetch
+      // Fetch immediately
       await fetchAndSyncLocation();
-
-      // 3. Poll every 10 seconds to update location and get neighbors
+      // Poll every 10 seconds
       intervalId = setInterval(fetchAndSyncLocation, 10000);
     };
 
-    startLocationTracking();
+    if (isVisible) {
+        startLocationTracking();
+    }
 
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, []);
+  }, [isVisible]); 
 
   const fetchAndSyncLocation = async () => {
     try {
-      // A. Get Current Location
+      // Ensure we have permission before getting position
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
       const loc = await Location.getCurrentPositionAsync({});
       
-      // B. Send my location to Backend
-      // This creates the user in the DB if they don't exist yet
-      console.log(`[${currentUserId}] Updating location:`, loc.coords.latitude, loc.coords.longitude);
+      // Update Backend
       await updateLocation(currentUserId, loc.coords.latitude, loc.coords.longitude);
 
-      // C. Get Nearby Users from Backend
+      // Get Neighbors
       const data = await getNearbyUsers(loc.coords.latitude, loc.coords.longitude);
       
       if (data && data.nearbyUsers) {
-        // Filter out myself so I don't see my own dot
         const others = data.nearbyUsers.filter((u: any) => u.userId !== currentUserId);
-
-        console.log(`[${currentUserId}] Found neighbors:`, others.length);
-
-        // Map lat/lon to screen X/Y coordinates relative to center
-        // Scale factor: determines how far apart dots appear. 
-        // Higher number = dots appear further away for the same real distance.
+        
+        // 400000 is a visual scaling factor to make small distances look big on screen
         const scalingFactor = 400000; 
 
         const mapped = others.map((u: any) => {
@@ -230,7 +221,6 @@ export default function Home() {
           return {
             ...u,
             id: u.userId,
-            // Invert Y because screen Y coordinates go down, but Latitude goes up (North)
             y: -latDiff * scalingFactor, 
             x: lonDiff * scalingFactor 
           };
@@ -245,25 +235,12 @@ export default function Home() {
 
   const handleSendSignal = async () => {
     if (!selectedUser) return;
-    
     try {
-      console.log(`Sending signal from ${currentUserId} to ${selectedUser.userId}`);
       await sendSignal(currentUserId, selectedUser.userId);
-      
-      // On Web, Alert.alert doesn't work the same, so we use confirm or console
-      if (Platform.OS === 'web') {
-        window.alert("Signal Sent! Your quiet signal is on its way.");
-      } else {
-        Alert.alert("Signal Sent!", "Your quiet signal is on its way.");
-      }
-      
+      Alert.alert("Signal Sent!", "Your quiet signal is on its way.");
       setSelectedUser(null);
     } catch (error) {
-      if (Platform.OS === 'web') {
-        window.alert("Error: Could not send signal.");
-      } else {
-        Alert.alert("Error", "Could not send signal. Please try again.");
-      }
+      Alert.alert("Error", "Could not send signal. Please try again.");
     }
   };
 
@@ -273,7 +250,7 @@ export default function Home() {
       
       <SafeAreaView className="flex-1">
         
-        {/* Header Controls */}
+        {/* Header */}
         <View className="flex-row justify-between items-center px-6 pt-4 mb-4 z-50">
           {isVisible ? (
             <View className="flex-row rounded-full p-1 h-12 items-center" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
@@ -318,37 +295,41 @@ export default function Home() {
                 </View>
               </View>
               
-              {/* Signal Count (Bottom) - Kept at absolute bottom, NOT shifted, to balance layout */}
+              {/* Signal Count (Bottom) */}
               {viewMode === 'signals' && (
                 <View className="absolute bottom-[15%] items-center">
+                  <Text className="text-white/80 text-lg font-medium mb-1 tracking-widest uppercase">
+                    Signals Received
+                  </Text>
                   <Text className="text-white text-6xl font-bold shadow-sm">
                     {signalCount}
                   </Text>
                 </View>
               )}
 
-              {/* Nearby Users Layer - Shifted Up to Match Radar */}
+              {/* Nearby Users Layer */}
               {viewMode === 'nearby' && (
                 <View 
                   className="absolute w-full h-full"
                   style={{ marginTop: CENTER_OFFSET_Y }}
                 >
-                  {NEARBY_USERS.map((user) => <UserDot key={user.id} user={user} onPress={setSelectedUser} isSignalsMode={false} />)}
-                  
+                  {nearbyUsers.map((user) => (
+                    <UserDot key={user.id} user={user} onPress={setSelectedUser} isSignalsMode={false} />
+                  ))}
                 </View>
               )}
               
-              {/* Counter Pill (Fixed at bottom independently of Radar shift) */}
+              {/* Counter Pill */}
               {viewMode === 'nearby' && (
                  <View className="absolute bottom-[10%] w-full items-center pointer-events-none">
                     <Text className="text-white/80 text-sm bg-black/10 px-4 py-2 rounded-full overflow-hidden">
-                       {NEARBY_USERS.length} active hearts nearby
+                       {nearbyUsers.length} active hearts nearby
                     </Text>
                  </View>
               )}
             </>
           ) : (
-            // Hidden State - Shifted Up
+            // Hidden State
             <View 
               className="items-center justify-center opacity-80"
               style={{ marginTop: CENTER_OFFSET_Y }}
@@ -376,10 +357,7 @@ export default function Home() {
         <SendSignalModal 
           visible={!!selectedUser} 
           onClose={() => setSelectedUser(null)} 
-          onSend={() => { 
-            setSelectedUser(null); 
-            Alert.alert("Signal Sent!", "Your heart signal has been sent.");
-          }} 
+          onSend={handleSendSignal} 
           targetUser={selectedUser} 
         />
       )}

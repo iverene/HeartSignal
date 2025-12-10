@@ -9,12 +9,16 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourname.heartsignal"
+      "bundleIdentifier": "com.yourname.heartsignal",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "HeartSignal uses your location to show you on the radar and find connections nearby."
+      }
     },
     "android": {
       "package": "com.yourname.heartsignal",
       "googleServicesFile": "./google-services.json",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
     },
     "plugins": [
       [
@@ -27,6 +31,12 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "HeartSignal uses your location to show you on the radar and find connections nearby."
         }
       ],
       "@react-native-google-signin/google-signin"
