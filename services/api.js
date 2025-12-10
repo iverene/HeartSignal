@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000';
+// IMPORTANT: For physical devices, replace 'localhost' with your computer's local IP address
+// e.g., 'http://192.168.1.5:5000'
+const API_URL = 'http://192.168.1.13:5000'; 
 
 // Function to update user location
 export const updateLocation = async (userId, latitude, longitude) => {
@@ -25,6 +27,7 @@ export const getNearbyUsers = async (latitude, longitude) => {
     return response.data;
   } catch (error) {
     console.error('Error fetching nearby users:', error);
+    return { nearbyUsers: [] }; // Return empty array on error to prevent crashes
   }
 };
 
@@ -37,5 +40,19 @@ export const updateFcmToken = async (userId, token) => {
     return response.data;
   } catch (error) {
     console.error('Error updating FCM token:', error);
+  }
+};
+
+// --- NEW FUNCTION ADDED ---
+export const sendSignal = async (fromUserId, toUserId) => {
+  try {
+    const response = await axios.post(`${API_URL}/signals/send`, {
+      fromUserId,
+      toUserId,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error sending signal:', error);
+    throw error;
   }
 };

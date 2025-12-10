@@ -1,19 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, Text, Image, TouchableOpacity, StyleSheet, Alert, Modal, TouchableWithoutFeedback 
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; // <--- UPDATED
-import Animated, { 
-  useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, withDelay, Easing, interpolate,
+import * as Device from 'expo-device'; // Ensure you have installed: npx expo install expo-device
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Image,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
+} from 'react-native';
+import Animated, {
+  Easing, interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat, withTiming,
 } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const NEARBY_USERS = [
-  { id: 1, x: -80, y: -90 }, { id: 2, x: 90, y: -40 },
-  { id: 3, x: -50, y: 110 }, { id: 4, x: 80, y: 80 }, { id: 5, x: 120, y: -120 },
-];
+// Import API services
+import { getNearbyUsers, sendSignal, updateLocation } from '../services/api';
+
+// --- ANIMATION COMPONENTS ---
 
 const RadarRing = ({ delay }: { delay: number }) => {
   const ringProgress = useSharedValue(0);
@@ -30,22 +44,31 @@ const RadarRing = ({ delay }: { delay: number }) => {
 const UserDot = ({ user, onPress, isSignalsMode }: { user: any, onPress: (u: any) => void, isSignalsMode: boolean }) => {
   const translateY = useSharedValue(0);
   const opacity = useSharedValue(isSignalsMode ? 0 : 1);
+  
   useEffect(() => { opacity.value = withTiming(isSignalsMode ? 0 : 1, { duration: 500 }); }, [isSignalsMode]);
-  useEffect(() => { translateY.value = withRepeat(withTiming(user.id % 2 === 0 ? 5 : -5, { duration: 2000 + (user.id * 100), easing: Easing.inOut(Easing.ease) }), -1, true); }, []);
+  
+  // Simple "floating" animation to make dots look alive
+  useEffect(() => { 
+    const duration = 2000 + (Math.random() * 1000);
+    translateY.value = withRepeat(withTiming(5, { duration, easing: Easing.inOut(Easing.ease) }), -1, true); 
+  }, []);
   
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ translateY: translateY.value }] }));
 
   return (
-    <Animated.View style={[{ position: 'absolute', left: '50%', top: '50%', marginLeft: user.x, marginTop: user.y }, animatedStyle]} pointerEvents={isSignalsMode ? 'none' : 'auto'}>
+    <Animated.View 
+      style={[{ position: 'absolute', left: '50%', top: '50%', marginLeft: user.x, marginTop: user.y }, animatedStyle]} 
+      pointerEvents={isSignalsMode ? 'none' : 'auto'}
+    >
       <TouchableOpacity onPress={() => onPress(user)} activeOpacity={0.7} hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }} className="items-center justify-center">
-        {/* Removed shadow-lg from className, added inline style */}
+        {/* User Dot Visual */}
         <View className="w-5 h-5 rounded-full bg-white border-2 border-[#ED5D55]" style={{ shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, elevation: 5 }} />
       </TouchableOpacity>
     </Animated.View>
   );
 };
 
-const SendSignalModal = ({ visible, onClose, onSend, targetUser }: any) => {
+const SendSignalModal = ({ visible, onClose, onSend }: any) => {
   return (
     <Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
@@ -72,12 +95,120 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'signals' | 'nearby'>('signals');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   
-  const handleSettings = () => router.push('/settings'); // <--- UPDATED
+  // Real data state
+  const [nearbyUsers, setNearbyUsers] = useState<any[]>([]);
+  
+  // --- AUTOMATIC ID ASSIGNMENT FOR TESTING ---
+  let currentUserId = "emulator_user"; // Default fallback
+  
+  if (Platform.OS === 'web') {
+    currentUserId = "web_user"; // Laptop Browser will be this user
+  } else if (Device.isDevice) {
+    currentUserId = "real_phone_user"; // Physical Phone will be this user
+  }
+
+  const handleSettings = () => router.push('/settings');
+
+  // --- LOCATION & DATA SYNC LOOP ---
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    const startLocationTracking = async () => {
+      // 1. Request Permission
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Permission to access location was denied. The radar will not work.');
+        return;
+      }
+
+      // 2. Initial Fetch
+      await fetchAndSyncLocation();
+
+      // 3. Poll every 10 seconds to update location and get neighbors
+      intervalId = setInterval(fetchAndSyncLocation, 10000);
+    };
+
+    startLocationTracking();
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, []);
+
+  const fetchAndSyncLocation = async () => {
+    try {
+      // A. Get Current Location
+      const loc = await Location.getCurrentPositionAsync({});
+      
+      // B. Send my location to Backend
+      // This creates the user in the DB if they don't exist yet
+      console.log(`[${currentUserId}] Updating location:`, loc.coords.latitude, loc.coords.longitude);
+      await updateLocation(currentUserId, loc.coords.latitude, loc.coords.longitude);
+
+      // C. Get Nearby Users from Backend
+      const data = await getNearbyUsers(loc.coords.latitude, loc.coords.longitude);
+      
+      if (data && data.nearbyUsers) {
+        // Filter out myself so I don't see my own dot
+        const others = data.nearbyUsers.filter((u: any) => u.userId !== currentUserId);
+
+        console.log(`[${currentUserId}] Found neighbors:`, others.length);
+
+        // Map lat/lon to screen X/Y coordinates relative to center
+        // Scale factor: determines how far apart dots appear. 
+        // Higher number = dots appear further away for the same real distance.
+        const scalingFactor = 400000; 
+
+        const mapped = others.map((u: any) => {
+          const latDiff = u.latitude - loc.coords.latitude;
+          const lonDiff = u.longitude - loc.coords.longitude;
+
+          return {
+            ...u,
+            id: u.userId,
+            // Invert Y because screen Y coordinates go down, but Latitude goes up (North)
+            y: -latDiff * scalingFactor, 
+            x: lonDiff * scalingFactor 
+          };
+        });
+
+        setNearbyUsers(mapped);
+      }
+    } catch (error) {
+      console.log("Error syncing location:", error);
+    }
+  };
+
+  const handleSendSignal = async () => {
+    if (!selectedUser) return;
+    
+    try {
+      console.log(`Sending signal from ${currentUserId} to ${selectedUser.userId}`);
+      await sendSignal(currentUserId, selectedUser.userId);
+      
+      // On Web, Alert.alert doesn't work the same, so we use confirm or console
+      if (Platform.OS === 'web') {
+        window.alert("Signal Sent! Your quiet signal is on its way.");
+      } else {
+        Alert.alert("Signal Sent!", "Your quiet signal is on its way.");
+      }
+      
+      setSelectedUser(null);
+    } catch (error) {
+      if (Platform.OS === 'web') {
+        window.alert("Error: Could not send signal.");
+      } else {
+        Alert.alert("Error", "Could not send signal. Please try again.");
+      }
+    }
+  };
 
   return (
     <View className="flex-1">
       <LinearGradient colors={['#ED5D55', '#F8A5A5']} style={StyleSheet.absoluteFill} />
       <SafeAreaView className="flex-1">
+        
+        {/* Header Controls */}
         <View className="flex-row justify-between items-center px-6 pt-4 mb-4 z-50">
           <View className="flex-row rounded-full p-1 h-12 items-center" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
             <TouchableOpacity onPress={() => setViewMode('signals')} className={`h-10 w-12 items-center justify-center rounded-full ${viewMode === 'signals' ? 'bg-white' : 'bg-transparent'}`}>
@@ -92,22 +223,40 @@ export default function Home() {
           </TouchableOpacity>
         </View>
 
+        {/* Radar Area */}
         <View className="flex-1 justify-center items-center relative">
           <View className="absolute items-center justify-center w-full h-full pointer-events-none">
+             {/* Animating Rings */}
              <View className="items-center justify-center w-[300px] h-[300px] absolute">
                <RadarRing delay={0} /><RadarRing delay={1000} /><RadarRing delay={2000} />
              </View>
+             {/* Center User Icon (Self) */}
              <Image source={require('../assets/icon.png')} className="w-[120px] h-[120px]" resizeMode="contain" style={{ tintColor: 'white', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10 }} />
           </View>
           
+          {/* Real Nearby Users Dots */}
           {viewMode === 'nearby' && (
             <View className="absolute w-full h-full">
-               {NEARBY_USERS.map((user) => <UserDot key={user.id} user={user} onPress={setSelectedUser} isSignalsMode={false} />)}
+               {nearbyUsers.map((user) => (
+                 <UserDot 
+                   key={user.id} 
+                   user={user} 
+                   onPress={setSelectedUser} 
+                   isSignalsMode={false} 
+                 />
+               ))}
             </View>
           )}
         </View>
       </SafeAreaView>
-      <SendSignalModal visible={!!selectedUser} onClose={() => setSelectedUser(null)} onSend={() => { setSelectedUser(null); Alert.alert("Sent!"); }} targetUser={selectedUser} />
+
+      {/* Send Signal Modal */}
+      <SendSignalModal 
+        visible={!!selectedUser} 
+        onClose={() => setSelectedUser(null)} 
+        onSend={handleSendSignal} 
+        targetUser={selectedUser} 
+      />
     </View>
   );
 }
