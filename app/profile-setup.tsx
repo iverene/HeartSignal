@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // <--- IMPORT
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
 
 export default function UsernameSetup() {
   const router = useRouter();
@@ -31,20 +31,26 @@ export default function UsernameSetup() {
 
   const isFormValid = username.length > 0 && selectedIconIndex !== null;
 
-  const handleContinue = async () => { // <--- Make ASYNC
+  const handleContinue = async () => { 
     if (!isFormValid) return;
     
     try {
-      // Save data to AsyncStorage
+      // 1. SAVE THE PROFILE TO STORAGE
       await AsyncStorage.setItem('userProfile', JSON.stringify({
         username: username,
         iconIndex: selectedIconIndex
       }));
+      
+      // 2. Default visibility to true
+      await AsyncStorage.setItem('userVisibility', JSON.stringify(true));
+
+      console.log(`Profile saved: ${username}`);
+      
+      // 3. Navigate to Home (Safe here because it's triggered by user action)
+      router.replace('/home'); 
     } catch (error) {
       console.error("Error saving profile:", error);
     }
-
-    router.replace('/home'); 
   };
 
   return (
@@ -137,7 +143,7 @@ export default function UsernameSetup() {
               <TouchableOpacity 
                 onPress={handleContinue}
                 className={`w-full py-5 rounded-full items-center flex-row justify-center
-                  ${isFormValid ? 'bg-primary' : 'bg-[#E2E8F0]'}
+                  ${isFormValid ? 'bg-[#FF5C8D]' : 'bg-[#E2E8F0]'}
                 `}
                 disabled={!isFormValid}
                 style={isFormValid ? {
