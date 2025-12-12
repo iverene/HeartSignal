@@ -1,19 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as Device from "expo-device";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
-import { useRouter, useFocusEffect } from "expo-router";
-import React, { useEffect, useState, useCallback } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Image,
   Modal,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
+  View
 } from "react-native";
 import Animated, {
   Easing,
@@ -22,14 +21,15 @@ import Animated, {
   useSharedValue,
   withDelay,
   withRepeat,
-  withTiming,
   withSequence,
+  withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Import API services (Ensure these exist in your project)
+// Import API services
 import { getNearbyUsers, sendSignal, updateLocation } from "../services/api";
+// Import Hooks
+import { usePushNotifications } from "../hooks/usePushNotifications";
 
 // --- ANIMATION COMPONENTS ---
 
@@ -129,6 +129,10 @@ const UserDot = ({
             elevation: 5,
           }}
         />
+        {/* Optional: Show distance label */}
+        {/* <View className="absolute top-6 bg-black/40 px-1 rounded">
+           <Text className="text-[8px] text-white font-bold">{user.distance}</Text>
+        </View> */}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -198,6 +202,7 @@ const SendSignalModal = ({ visible, onClose, onSend }: any) => {
   );
 };
 
+// --- MAIN SCREEN COMPONENT ---
 export default function Home() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<"signals" | "nearby">("signals");
@@ -205,15 +210,18 @@ export default function Home() {
   const [isVisible, setIsVisible] = useState(true);
   const [signalCount, setSignalCount] = useState(0);
   const [nearbyUsers, setNearbyUsers] = useState<any[]>([]);
+  
+  // State for Unique User ID
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // --- REGISTER FOR PUSH NOTIFICATIONS ---
+  // This hook will check permissions and send the token to your backend
+  usePushNotifications(currentUserId);
 
   // Shift content up to center it better visually
   const CENTER_OFFSET_Y = -120;
 
-  // Mock ID generation
-  let currentUserId = "emulator_user";
-  if (Platform.OS === "web") currentUserId = "web_user";
-  else if (Device.isDevice) currentUserId = "real_phone_user";
-
+  // Animation for the center logo
   const scale = useSharedValue(1);
   React.useEffect(() => {
     scale.value = withRepeat(
@@ -231,7 +239,26 @@ export default function Home() {
     transform: [{ scale: scale.value }],
   }));
 
-  // --- INITIALIZATION ON FOCUS ---
+  // --- 1. INITIALIZE USER IDENTITY ---
+  useEffect(() => {
+    const initializeIdentity = async () => {
+      try {
+        let id = await AsyncStorage.getItem('auth_user_id');
+        if (!id) {
+          // Generate a unique ID if it doesn't exist
+          id = 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+          await AsyncStorage.setItem('auth_user_id', id);
+        }
+        console.log("My User ID:", id);
+        setCurrentUserId(id);
+      } catch (e) {
+        console.error("Identity Error:", e);
+      }
+    };
+    initializeIdentity();
+  }, []);
+
+  // --- 2. INITIALIZE PERMISSIONS & VISIBILITY ---
   useFocusEffect(
     useCallback(() => {
       const initializeHome = async () => {
@@ -239,29 +266,22 @@ export default function Home() {
           const storedVisibility = await AsyncStorage.getItem("userVisibility");
           let shouldBeVisible = true;
 
-          // If first time (null), default to true. Otherwise load preference.
           if (storedVisibility !== null) {
             shouldBeVisible = JSON.parse(storedVisibility);
           }
 
           if (shouldBeVisible) {
-            const { status } =
-              await Location.requestForegroundPermissionsAsync();
-
+            const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== "granted") {
               Alert.alert(
                 "Permission Required",
-                "Location access is needed to show you on the radar. Visibility has been turned off.",
+                "Location access is needed to show you on the radar.",
                 [{ text: "OK" }]
               );
               shouldBeVisible = false;
-              await AsyncStorage.setItem(
-                "userVisibility",
-                JSON.stringify(false)
-              );
+              await AsyncStorage.setItem("userVisibility", JSON.stringify(false));
             }
           }
-
           setIsVisible(shouldBeVisible);
         } catch (e) {
           console.error("Failed to initialize home", e);
@@ -271,63 +291,71 @@ export default function Home() {
     }, [])
   );
 
-  // --- DATA SYNC LOOP (Running only when visible) ---
+  // --- 3. DATA SYNC LOOP ---
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
 
     const startLocationTracking = async () => {
+      if (!currentUserId) return; // Wait for ID to load
+      
       // Fetch immediately
       await fetchAndSyncLocation();
       // Poll every 10 seconds
       intervalId = setInterval(fetchAndSyncLocation, 10000);
     };
 
-    if (isVisible) {
+    if (isVisible && currentUserId) {
       startLocationTracking();
     }
 
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [isVisible]);
+  }, [isVisible, currentUserId]);
 
   const fetchAndSyncLocation = async () => {
+    if (!currentUserId) return;
+
     try {
-      // Ensure we have permission before getting position
       const { status } = await Location.getForegroundPermissionsAsync();
       if (status !== "granted") return;
 
       const loc = await Location.getCurrentPositionAsync({});
 
-      // Update Backend
+      // Update Backend with MY location
       await updateLocation(
         currentUserId,
         loc.coords.latitude,
         loc.coords.longitude
       );
 
-      // Get Neighbors
+      // Get Nearby Users
       const data = await getNearbyUsers(
         loc.coords.latitude,
         loc.coords.longitude
       );
 
       if (data && data.nearbyUsers) {
+        // Filter out myself
         const others = data.nearbyUsers.filter(
           (u: any) => u.userId !== currentUserId
         );
 
-        // 400000 is a visual scaling factor to make small distances look big on screen
-        const scalingFactor = 400000;
+        // Visual Scaling Factor: 
+        // 40000 ensures users within ~5km are visible on screen.
+        const scalingFactor = 40000;
 
         const mapped = others.map((u: any) => {
-          const latDiff = u.latitude - loc.coords.latitude;
-          const lonDiff = u.longitude - loc.coords.longitude;
+          // Calculate relative position based on lat/long difference
+          const latDiff = (u.latitude || 0) - loc.coords.latitude;
+          const lonDiff = (u.longitude || 0) - loc.coords.longitude;
 
           return {
             ...u,
             id: u.userId,
-            y: -latDiff * scalingFactor,
+            // Map Latitude to Y (Negative because screen Y goes down, Lat goes up)
+            y: -latDiff * scalingFactor, 
+            // Map Longitude to X
             x: lonDiff * scalingFactor,
           };
         });
@@ -340,7 +368,7 @@ export default function Home() {
   };
 
   const handleSendSignal = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser || !currentUserId) return;
     try {
       await sendSignal(currentUserId, selectedUser.userId);
       Alert.alert("Signal Sent!", "Your signal is on its way.");
