@@ -164,7 +164,7 @@ const SendSignalModal = ({ visible, onClose, onSend }: any) => {
                 Send a Signal?
               </Text>
               <Text className="text-gray-500 text-center mb-8 px-2 leading-6">
-                You are about to send a quiet heart signal.
+                You are about to send a heart signal.
               </Text>
               <View className="flex-row w-full space-x-3">
                 <TouchableOpacity
@@ -207,7 +207,7 @@ export default function Home() {
   const [nearbyUsers, setNearbyUsers] = useState<any[]>([]);
 
   // Shift content up to center it better visually
-  const CENTER_OFFSET_Y = -60;
+  const CENTER_OFFSET_Y = -120;
 
   // Mock ID generation
   let currentUserId = "emulator_user";
@@ -343,7 +343,7 @@ export default function Home() {
     if (!selectedUser) return;
     try {
       await sendSignal(currentUserId, selectedUser.userId);
-      Alert.alert("Signal Sent!", "Your quiet signal is on its way.");
+      Alert.alert("Signal Sent!", "Your signal is on its way.");
       setSelectedUser(null);
     } catch (error) {
       Alert.alert("Error", "Could not send signal. Please try again.");
