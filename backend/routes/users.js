@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { updateLocation, getNearbyUsers } = require('../controllers/userController');
+// Import all three functions
+const { updateLocation, getNearbyUsers, updateFcmToken } = require('../controllers/userController');
 
-router.post('/location', updateLocation);       // Update user location
-router.get('/nearby', getNearbyUsers);          // Get nearby users
+router.post('/location', updateLocation);       
+router.get('/nearby', getNearbyUsers);          
+router.post('/fcm-token', updateFcmToken); // <--- ADDED THIS LINE
 
 module.exports = router;

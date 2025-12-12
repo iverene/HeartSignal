@@ -28,6 +28,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 // Import API services
 import { getNearbyUsers, sendSignal, updateLocation } from "../services/api";
+// Import Hooks
+import { usePushNotifications } from "../hooks/usePushNotifications";
 
 // --- ANIMATION COMPONENTS ---
 
@@ -128,9 +130,9 @@ const UserDot = ({
           }}
         />
         {/* Optional: Show distance label */}
-        <View className="absolute top-6 bg-black/40 px-1 rounded">
+        {/* <View className="absolute top-6 bg-black/40 px-1 rounded">
            <Text className="text-[8px] text-white font-bold">{user.distance}</Text>
-        </View>
+        </View> */}
       </TouchableOpacity>
     </Animated.View>
   );
@@ -211,6 +213,10 @@ export default function Home() {
   
   // State for Unique User ID
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // --- REGISTER FOR PUSH NOTIFICATIONS ---
+  // This hook will check permissions and send the token to your backend
+  usePushNotifications(currentUserId);
 
   // Shift content up to center it better visually
   const CENTER_OFFSET_Y = -120;
@@ -337,8 +343,6 @@ export default function Home() {
 
         // Visual Scaling Factor: 
         // 40000 ensures users within ~5km are visible on screen.
-        // Higher number = Zoom In (users fly off screen faster)
-        // Lower number = Zoom Out (users bunch in center)
         const scalingFactor = 40000;
 
         const mapped = others.map((u: any) => {
